@@ -11,13 +11,16 @@ configure "name = match_name
   shortcode = nw
   number_of_rounds = 2
   number_of_questions = 10
-  number_of_players = 4"
+  number_of_players = 1"
 
 
 pool_configuration "
   pool_denomination = Rs
   start_pool_amount = 1000
-  points_to_pool = 10"
+  points_to_pool = 10
+  char_match = 2", do
+  
+end
   
    
 start
@@ -31,7 +34,7 @@ q1 = create_question do
     answer = a "
 end 
 activate q1
-submit_question_answer(q1, 'a')
+submit_question_answer(q1, /ab/)
 
 
 q2 = create_question do

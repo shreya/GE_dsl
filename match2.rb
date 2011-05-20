@@ -33,7 +33,7 @@ class Match
   
   
   def initialize(*args)
-    args.each{ |arg| create_attr_accessor(arg)}
+    self.class.class_eval { attr_accessor *args }
     @current_active_question =  @previous_active_question =  @current_active_inning = nil  
   end
   
@@ -87,8 +87,8 @@ class Match
 
   ######################### Configure Pool #########################
 
-  def pool_configuration(hash)
-    set_values(hash)
+  def pool_configuration(hash, &block)
+    edit_pool(hash)
     pool.amount = start_pool_amount
   end
   
@@ -110,6 +110,13 @@ class Match
     start_inning(args.first) if evaluate_inning?(args) 
     state = MATCH_STATUS['Started']
   end
+
+  
+  def start_inning(inning)
+    inning.start
+    @current_active_inning = inning
+    register_users(inning)
+  end
   
   
   #################################################################  
@@ -120,7 +127,7 @@ class Match
   
   
   def create_question(&block)
-    if  @current_active_inning
+    if @current_active_inning
       q = Question.build(self.name, &block)
       mark_question_as_current(q)
       q
@@ -144,6 +151,7 @@ class Match
     get_player_answers      
   end
   
+
   ##################################################################
   
   
@@ -152,6 +160,15 @@ class Match
   
   
   ############### submit answer and process results ###############
+  
+  def get_player_answers
+    players.each_with_index do |player, index|
+      if knockout_player_proccessing(player)
+        p "Enter player answer for #{index + 1} player"
+        submit_player_answer(player, gets)
+      end
+    end
+  end
   
   def submit_question_answer(que, ans)
     que.answer = ans
@@ -266,14 +283,7 @@ class Match
       instance_variable_set :"@#{key}", (value.to_i.to_s == value ? value.to_i : value)
     end
   end
-  
-  
-  def start_inning(inning)
-    inning.start
-    @current_active_inning = inning
-    register_users(inning)
-  end
-    
+      
   
   def inning(inning_number)
     innings[inning_number.to_i - 1]
@@ -303,16 +313,6 @@ class Match
     p "Pool Size = " + denominated_value(pool.amount)
     p "No. of winners = " + question_winners.count.to_s
     p "Each winner gets = " + denominated_value(win_amount) if win_amount 
-  end
-  
-  
-  def get_player_answers
-    players.each_with_index do |player, index|
-      if knockout_player_proccessing(player)
-        p "Enter player answer for #{index + 1} player"
-        submit_player_answer(player, gets)
-      end
-    end
   end
   
   
