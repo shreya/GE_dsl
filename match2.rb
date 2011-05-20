@@ -15,13 +15,14 @@ class Match
   STATUS = {'Winner' => 1, 'Loser' => 2}
   
   attr_accessor :game_type, :players, :pool, :name, :start_pool_amount, :innings, :state  
+    
+
+  ##################  Initialize Game ################################
   
-  def initialize(*args)
-    args.each{ |arg| create_attr_accessor(arg)}
-    @current_active_question =  @previous_active_question =  @current_active_inning = nil  
+  def self.load(filename)
+    build.instance_eval(File.read(filename), filename)
   end
   
-    
   def self.build(game_type='', &block)
     m = Match.new
     m.game_type, m.players, m.innings, m.pool = game_type, [], [], Pool.new
@@ -30,30 +31,10 @@ class Match
     m
   end
   
-
-  def create_rounds
-    number_of_rounds.to_i.times do
-      innings << Inning.build(name)
-    end    
-    innings
-  end
   
-  
-  def configure(hash="", &block)
-    set_values(hash)
-    create_rounds
-    instance_eval(&block) if block_given?
-  end
-  
-  
-  def edit_pool
-    set_values(hash)
-  end
-  
-  
-  def pool_configuration(hash)
-    set_values(hash)
-    pool.amount = start_pool_amount
+  def initialize(*args)
+    args.each{ |arg| create_attr_accessor(arg)}
+    @current_active_question =  @previous_active_question =  @current_active_inning = nil  
   end
   
   
@@ -61,21 +42,172 @@ class Match
     pool.amount = start_pool_amount.to_f if start_pool_amount
     pool.match_name = name
   end
-    
-    
-  def activate(que)
-    @current_active_question = que if que.activate
-    players.each_with_index do |player, index|
-    
-      if knockout_player_proccessing(player)
-        p "Enter player answer for #{index + 1} player"
-        submit_player_answer(player, gets)
-      end
-    end
-    
+  
+  ######################################################################
+  
+  
+  
+  
+  
+  
+  ####################### Define match_type ###########################
+  
+  def match_type(type)
+    self.game_type = type
+  end
+  
+  ######################################################################
+  
+  
+  
+  
+  
+  
+  ###################### Configure game ################################
+
+  def configure(hash="", &block)
+    set_values(hash)
+    create_rounds
+    instance_eval(&block) if block_given?
+  end
+  
+
+  def create_rounds
+    number_of_rounds.to_i.times { innings << Inning.build(name) }
+    innings
+  end
+  
+  ###################################################################
+  
+  
+  
+  
+  
+  
+
+  ######################### Configure Pool #########################
+
+  def pool_configuration(hash)
+    set_values(hash)
+    pool.amount = start_pool_amount
+  end
+  
+  def edit_pool
+    set_values(hash)
+  end
+  
+  ##################################################################
+  
+  
+  
+  
+  
+  
+  
+  ######################### Start game/inning ######################
+  
+  def start(*args)
+    start_inning(args.first) if evaluate_inning?(args) 
+    state = MATCH_STATUS['Started']
   end
   
   
+  #################################################################  
+  
+  
+  
+  ######################### Create question ######################
+  
+  
+  def create_question(&block)
+    if  @current_active_inning
+      q = Question.build(self.name, &block)
+      mark_question_as_current(q)
+      q
+    else
+      p "No inning/round active currently"
+    end
+  end  
+
+  #################################################################  
+  
+  
+  
+  
+  
+  
+  
+  ######################### Activate Question ####################  
+    
+  def activate(que)
+    @current_active_question = que if que.activate
+    get_player_answers      
+  end
+  
+  ##################################################################
+  
+  
+  
+  
+  
+  
+  ############### submit answer and process results ###############
+  
+  def submit_question_answer(que, ans)
+    que.answer = ans
+    process_question_results(que, ans)
+  end
+  
+  
+  def process_question_results(que, ans)
+    winners = []
+    players.each do |player|
+      if player.question_answer[@current_active_question] and !!((player.question_answer[@current_active_question]).match(ans))
+        mark_player_winner(player)         
+        winners << player 
+      else 
+        player.question_status.merge!(@current_active_question => LEVEL_STATUS['Loser'])
+      end
+    end
+    winners
+  end
+  
+  #####################################################################
+  
+  
+  
+  
+  
+  ####################### Finish Game, process results ################
+  def finish(*args)
+    evaluate_inning?(args) ? end_inning(args[0]) : end_match
+  end
+  
+  
+  def process_results
+    if question_winners.count != 0
+      win_amount = pool.amount/question_winners.count 
+      question_winners.each{ |winner| winner.allot(win_amount) }
+      (players - question_winners).each{ |player| player.mark_as_loser }
+    end
+    anounce_results(win_amount)
+  end
+  
+  
+  def question_winners
+    winners = []
+    players.each{ |player|
+      winners << player if player.question_status[@current_active_question] == LEVEL_STATUS['Winner'] }
+  end
+  
+  ######################################################################
+  
+  
+  
+  
+  
+  ####################### Player actions ###############################
+
   def register_player(registeration_string)
     msg = registeration_string.split
     if msg.count == 3 and msg[0] == shortcode.to_s and msg[1].downcase == "reg" and (msg[2] == keyword1 or msg[2] == keyword2 or msg[2] == keyword3 or msg[2] == keyword4)
@@ -88,55 +220,10 @@ class Match
   end
   
   
-  def create_question(&block)
-    if  @current_active_inning
-      q = Question.build(self.name, &block)
-       @previous_active_question =  @current_active_question
-       @current_active_question = q
-       @current_active_inning.questions << q
-      q
-    else
-      p "No inning/round active currently"
-    end
-  end  
-  
-  
-  def status
-    state
-  end
-  
-  
-  def start(*args)
-    evaluate_inning?(args) 
-
-    if !(args.empty?) and innings.include?(args[0]) 
-
-    end
-
-    state = MATCH_STATUS['Started']
-  end
-  
-  
   def register_users(inning_num)
     number_of_players.times { p "Enter player entry msg - "; register_player(gets) } if (inning_num == innings.first)
   end  
     
-    
-  def finish(*args)
-    evaluate_inning?(args) ? end_inning(args[0]) : end_match
-  end
-  
-  
-  def process_results
-    if question_winners.count != 0
-      win_amount = pool.amount/question_winners.count 
-      question_winners.each{ |winner| winner.allot(win_amount) }
-      (players - question_winners).each{ |player| player.mark_as_loser }
-      end
-    end
-    anounce_results(win_amount)
-  end
-  
   
   def submit_player_answer(player, answer_string)
     msg = answer_string.split
@@ -146,6 +233,7 @@ class Match
     end
   end
   
+
   ## Valid keyword
   def check_keyword(msg)    
     instance_variables.each{|var|  
@@ -157,60 +245,19 @@ class Match
     (knockout == "true" and player.question_status[@previous_active_question] == LEVEL_STATUS['Winner']) or
      @current_active_inning.questions.count == 1 or knockout == "false"
   end
-  
-  
-  def submit_question_answer(que, ans)
-    que.answer = ans
-    process_question_results(que, ans)
-  end
-  
-  
-  def process_question_results(que, ans)
-    winners = []
-    players.each do |player|
-       if player.question_answer[@current_active_question] == ans 
-         mark_player_winner(player)
-         winners << player 
-       else 
-         player.question_status.merge!(@current_active_question => LEVEL_STATUS['Loser'])
-       end
-    end
-    winners
-  end
-  
-  
-  def question_winners
-    winners = []
-    players.each{ |player|
-      winners << player if player.question_status[@current_active_question] == LEVEL_STATUS['Winner'] }
-  end
-  
-  def self.load(filename)
-    build.instance_eval(File.read(filename), filename)
-  end
-  
-  
-  def match_type(type)
-    self.game_type = type
-  end
-  
-  
-  def denominated_value(amount)
-    "#{pool_denomination} - #{amount}"
-  end
-  
+    
+  ###############################################################################
+      
   
   private
-  
-  def inning(inning_number)
-    innings[inning_number.to_i - 1]
-  end
   
   def create_attr_accessor(val)
     self.class.class_eval(<<-EOS, __FILE__, __LINE__ + 1)
       attr_accessor :#{val} 
     EOS
   end
+  
+  
   
   def set_values(hash)
     hash = hash.delete(' ').split.inject({}) {|hsh,i| sides=i.split("="); hsh[sides[0]]=sides[1]; hsh}
@@ -219,6 +266,20 @@ class Match
       instance_variable_set :"@#{key}", (value.to_i.to_s == value ? value.to_i : value)
     end
   end
+  
+  
+  def start_inning(inning)
+    inning.start
+    @current_active_inning = inning
+    register_users(inning)
+  end
+    
+  
+  def inning(inning_number)
+    innings[inning_number.to_i - 1]
+  end
+  
+  
   
   def evaluate_inning?(args)
     !(args.empty?) and innings.include?(args[0])
@@ -244,11 +305,28 @@ class Match
     p "Each winner gets = " + denominated_value(win_amount) if win_amount 
   end
   
-  def start_inning(inning)
-    inning.start
-     @current_active_inning = inning
-     register_users(inning)
+  
+  def get_player_answers
+    players.each_with_index do |player, index|
+      if knockout_player_proccessing(player)
+        p "Enter player answer for #{index + 1} player"
+        submit_player_answer(player, gets)
+      end
+    end
   end
+  
+  
+  def mark_question_as_current(q)
+    @previous_active_question =  @current_active_question
+    @current_active_question = q
+    @current_active_inning.questions << q
+  end
+  
+  
+  def denominated_value(amount)
+    "#{pool_denomination} - #{amount}"
+  end
+  
   
 end
 
