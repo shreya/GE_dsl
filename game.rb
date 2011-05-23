@@ -8,7 +8,7 @@ require './inning'
 #                 :knockout, :shortcode, :number_of_rounds, :innings, :players, :pool
 
 
-class Match
+class Game
   
   MATCH_STATUS = {'Started' => 1, 'Ended' => 2, 'Abandoned' => 3}
   LEVEL_STATUS = {'Winner' => 1, 'Loser' => 2}
@@ -24,7 +24,7 @@ class Match
   end
   
   def self.build(game_type='', &block)
-    m = Match.new
+    m = Game.new
     m.game_type, m.players, m.innings, m.pool = game_type, [], [], Pool.new
     m.create_pool
     m.instance_eval(&block) if block_given?
@@ -91,11 +91,7 @@ class Match
     edit_pool(hash)
     pool.amount = start_pool_amount
   end
-  
-  def edit_pool
-    set_values(hash)
-  end
-  
+
   ##################################################################
   
   
@@ -284,6 +280,8 @@ class Match
     end
   end
       
+  
+  alias :edit_pool :set_values
   
   def inning(inning_number)
     innings[inning_number.to_i - 1]

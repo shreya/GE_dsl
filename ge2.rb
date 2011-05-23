@@ -1,3 +1,3 @@
-require './match2'
+require './game'
 
-Match.load('rules2.rb')
+Game.load('rules2.rb')
