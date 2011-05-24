@@ -1,11 +1,11 @@
-require './pool'
-require './question'
-require './player'
-require './inning'
-
 # Match attibutes :name, :venue, :description, :scheduled_at, :keyword1, :keyword2, :keyword3, :keyword4,
 #                 :pool_denomination, :start_pool_amount, :points_to_pool, :game_type, :state,
 #                 :knockout, :shortcode, :number_of_rounds, :innings, :players, :pool
+
+
+['pool', 'question', 'player', 'inning'].each {|file| require ('./'+file)}
+require './attr_accessor_with_default'
+
 
 
 class Game
@@ -14,7 +14,10 @@ class Game
   LEVEL_STATUS = {'Winner' => 1, 'Loser' => 2}
   STATUS = {'Winner' => 1, 'Loser' => 2}
   
-  attr_accessor :game_type, :players, :pool, :name, :start_pool_amount, :innings, :state  
+  attr_accessor :game_type, :name, :start_pool_amount, :state  
+  attr_accessor_with_default :players, []
+  attr_accessor_with_default :innings, []
+  attr_accessor_with_default :pool, Pool.new
     
 
   ##################  Initialize Game ################################
@@ -23,9 +26,10 @@ class Game
     build.instance_eval(File.read(filename), filename)
   end
   
+  
   def self.build(game_type='', &block)
     m = Game.new
-    m.game_type, m.players, m.innings, m.pool = game_type, [], [], Pool.new
+    m.game_type = game_type 
     m.create_pool
     m.instance_eval(&block) if block_given?
     m
@@ -53,7 +57,7 @@ class Game
   ####################### Define match_type ###########################
   
   def match_type(type)
-    self.game_type = type
+    game_type = type
   end
   
   ######################################################################
@@ -193,7 +197,7 @@ class Game
   
   ####################### Finish Game, process results ################
   def finish(*args)
-    evaluate_inning?(args) ? end_inning(args[0]) : end_match
+    (evaluate_inning?(args) and innings.last != args[0]) ? end_inning(args[0]) : end_match
   end
   
   
@@ -239,10 +243,13 @@ class Game
     
   
   def submit_player_answer(player, answer_string)
+    #### Increment pool in any case
+    pool.increment(points_to_pool)
+    
+    #### Check if the player's answer is correct
     msg = answer_string.split
     if msg.size == 3 and check_keyword(msg[1]) == true and knockout_player_proccessing(player)
       player.question_answer.merge!({@current_active_question => msg[2] })
-      pool.increment(points_to_pool)
     end
   end
   
@@ -282,26 +289,46 @@ class Game
       
   
   alias :edit_pool :set_values
-  
-  def inning(inning_number)
-    innings[inning_number.to_i - 1]
-  end
-  
-  
-  
+    
+  ################################  
   def evaluate_inning?(args)
     !(args.empty?) and innings.include?(args[0])
   end
   
+  
   def end_inning(inning)
     inning.finish
     @current_active_inning = nil
+    process_results
+    pool.amount = 0
+    p "Enter enteries for #{next_inning_number(inning)} inning"
   end
   
   def end_match
     state = MATCH_STATUS['Ended']
     process_results
   end
+  
+  ################################
+  
+  ##### Inning Helpers
+  
+  def next_inning_number(inning)
+    innings.index(inning) + 2
+  end
+  
+  def inning(inning_number)
+    innings[inning_number.to_i - 1]
+  end
+  
+  
+  ###### Pool helpers
+  def denominated_value(amount)
+    "#{pool_denomination} - #{amount}"
+  end
+  
+  
+  ###############################
   
   def mark_player_winner(player)
     player.question_status.merge!(@current_active_question => LEVEL_STATUS['Winner'])
@@ -320,10 +347,6 @@ class Game
     @current_active_inning.questions << q
   end
   
-  
-  def denominated_value(amount)
-    "#{pool_denomination} - #{amount}"
-  end
   
   
 end
