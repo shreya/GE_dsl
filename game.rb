@@ -7,7 +7,6 @@
 require './attr_accessor_with_default'
 
 
-
 class Game
   
   MATCH_STATUS = {'Started' => 1, 'Ended' => 2, 'Abandoned' => 3}
@@ -104,7 +103,7 @@ class Game
   
   
   
-  ######################### Start game/inning ######################
+  ######################### Start Game/Inning ######################
   
   def start(*args)
     start_inning(args.first) if evaluate_inning?(args) 
@@ -185,7 +184,7 @@ class Game
       else 
         player.question_status.merge!(@current_active_question => LEVEL_STATUS['Loser'])
       end
-    end
+    end    
     winners
   end
   
@@ -202,12 +201,14 @@ class Game
   
   
   def process_results
-    if question_winners.count != 0
-      win_amount = pool.amount/question_winners.count 
-      question_winners.each{ |winner| winner.allot(win_amount) }
-      (players - question_winners).each{ |player| player.mark_as_loser }
+    winners = question_winners
+        
+    if winners.count != 0
+      win_amount = pool.amount/(winners.count) 
+      winners.each{ |winner| winner.allot(win_amount) }
+      (players - winners).each{ |player| player.mark_as_loser }
     end
-    anounce_results(win_amount)
+    anounce_results(win_amount, winners.count)
   end
   
   
@@ -215,6 +216,7 @@ class Game
     winners = []
     players.each{ |player|
       winners << player if player.question_status[@current_active_question] == LEVEL_STATUS['Winner'] }
+    winners
   end
   
   ######################################################################
@@ -227,7 +229,7 @@ class Game
 
   def register_player(registeration_string)
     msg = registeration_string.split
-    if msg.count == 3 and msg[0] == shortcode.to_s and msg[1].downcase == "reg" and (msg[2] == keyword1 or msg[2] == keyword2 or msg[2] == keyword3 or msg[2] == keyword4)
+    if can_register?(msg)
       pl = Player.build
       players << pl
       pl.register(registeration_string) 
@@ -248,9 +250,8 @@ class Game
     
     #### Check if the player's answer is correct
     msg = answer_string.split
-    if msg.size == 3 and check_keyword(msg[1]) == true and knockout_player_proccessing(player)
-      player.question_answer.merge!({@current_active_question => msg[2] })
-    end
+    player.question_answer.merge!({@current_active_question => msg[2] }) if msg.size == 3 and check_keyword(msg[1]) == true and 
+    knockout_player_proccessing(player)
   end
   
 
@@ -334,9 +335,9 @@ class Game
     player.question_status.merge!(@current_active_question => LEVEL_STATUS['Winner'])
   end
   
-  def anounce_results(win_amount)
+  def anounce_results(win_amount, winner_count)
     p "Pool Size = " + denominated_value(pool.amount)
-    p "No. of winners = " + question_winners.count.to_s
+    p "No. of winners = " + winner_count.to_s
     p "Each winner gets = " + denominated_value(win_amount) if win_amount 
   end
   
@@ -348,6 +349,12 @@ class Game
   end
   
   
+  def can_register?(msg)
+    msg.count == 3 and 
+    msg[0] == shortcode.to_s and 
+    msg[1].downcase == "reg" and 
+    (msg[2] == keyword1 or msg[2] == keyword2 or msg[2] == keyword3 or msg[2] == keyword4)
+  end
   
 end
 
