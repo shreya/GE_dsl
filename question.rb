@@ -1,5 +1,5 @@
 class Question
-  attr_accessor :body, :option1, :option2, :option3, :answer, :match_name, :state
+  attr_accessor :body, :option1, :option2, :option3, :answer, :match_name, :state, :wrongs_allowed
 
   STATUS = {'Open' => 1, 'Closed' => 2}
 

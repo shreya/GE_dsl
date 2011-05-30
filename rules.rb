@@ -34,7 +34,7 @@ q1 = create_question do
     wrongs_allowed = 1"
 end 
 activate q1
-submit_question_answer(q1, /ab/)
+submit_question_answer(q1, 'ab')
 
 
 q2 = create_question do

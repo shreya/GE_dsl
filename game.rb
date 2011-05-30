@@ -185,8 +185,25 @@ class Game
         player.question_status.merge!(@current_active_question => LEVEL_STATUS['Loser'])
       end
     end    
+    
+    if winners.empty? and @current_active_question.wrongs_allowed
+      players.each do |player|
+        if player.question_answer[@current_active_question]
+          diff = 0
+          str1 = player.question_answer[@current_active_question]
+          str2 = ans
+          str1.size.times{|index| diff += 1 if str1[index] != str2[index]} if str1.size == str2.size
+          mark_player_winner(player) if @current_active_question.wrongs_allowed.to_i >= diff 
+          winners << player if @current_active_question.wrongs_allowed.to_i >= diff 
+        end
+      end
+    end
+    
     winners
   end
+  
+  
+  
   
   #####################################################################
   
