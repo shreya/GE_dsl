@@ -188,13 +188,9 @@ class Game
     
     if winners.empty? and @current_active_question.wrongs_allowed
       players.each do |player|
-        if player.question_answer[@current_active_question]
-          diff = 0
-          str1 = player.question_answer[@current_active_question]
-          str2 = ans
-          str1.size.times{|index| diff += 1 if str1[index] != str2[index]} if str1.size == str2.size
-          mark_player_winner(player) if @current_active_question.wrongs_allowed.to_i >= diff 
-          winners << player if @current_active_question.wrongs_allowed.to_i >= diff 
+        if player.question_answer[@current_active_question] and (@current_active_question.wrongs_allowed.to_i >= answer_diff(player.question_answer[@current_active_question], ans))
+          mark_player_winner(player) 
+          winners << player
         end
       end
     end
@@ -202,8 +198,12 @@ class Game
     winners
   end
   
-  
-  
+
+  def answer_diff(player_ans, ans)    
+    diff = 0
+    player_ans.size.times{|index| diff += 1 if player_ans[index] != ans[index]} if player_ans.size == ans.size
+    diff
+  end  
   
   #####################################################################
   
