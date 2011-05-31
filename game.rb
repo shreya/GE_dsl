@@ -186,6 +186,7 @@ class Game
       end
     end    
     
+    ### Check for partial correct answer if there are no winners with absolute answers
     if winners.empty? and @current_active_question.wrongs_allowed
       players.each do |player|
         if player.question_answer[@current_active_question] and (@current_active_question.wrongs_allowed.to_i >= answer_diff(player.question_answer[@current_active_question], ans))
@@ -199,6 +200,7 @@ class Game
   end
   
 
+  
   def answer_diff(player_ans, ans)    
     diff = 0
     player_ans.size.times{|index| diff += 1 if player_ans[index] != ans[index]} if player_ans.size == ans.size
